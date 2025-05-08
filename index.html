@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tools</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  html {
+    overflow-y: scroll;
+  }
+  .search-container {
+    margin: 20px 0;
+  }
+  #searchInput {
+    width: 100%;
+    padding: 8px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  .hidden {
+    display: none;
+  }
+</style>
+</head>
+<body>
+<h1>Tools</h1>
+<div class="search-container">
+<input type="text" id="searchInput" placeholder="Search tools..." aria-label="Search tools">
+</div>
+<ul id="toolsList">
+<li><a href="pdf-to-json.html"><span class="tool-name">pdf-to-json</span><span class="tool-description">Extract text from PDF and return JSON</span></a></li>
+<li><a href="qr-generator.html"><span class="tool-name">qr-generator</span><span class="tool-description">Quickly generate a QR code for a link</span></a></li>
+<li><a href="sqlite-viewer.html"><span class="tool-name">sqlite-viewer</span><span class="tool-description">View and query sqlite files</span></a></li>
+</ul>
+<script>
+  document.getElementById("searchInput").addEventListener("input", function() {
+    const searchText = this.value.toLowerCase();
+    const listItems = document.getElementById("toolsList").getElementsByTagName("li");
+    
+    for (const item of listItems) {
+      const toolName = item.querySelector(".tool-name")?.textContent || item.textContent;
+      const toolDescription = item.querySelector(".tool-description")?.textContent || "";
+      const content = `${toolName} ${toolDescription}`.toLowerCase();
+      
+      if (content.includes(searchText)) {
+        item.classList.remove("hidden");
+      } else {
+        item.classList.add("hidden");
+      }
+    }
+  });
+</script>
+</body>
+</html>

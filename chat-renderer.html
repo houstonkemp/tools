@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="tool-description" content="Render Claude chats to markdown/HTML">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat conversation renderer</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .input-container {
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .json-input {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+            resize: vertical;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .copy-md-button {
+            background: #4caf50;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .button-disabled {
+            background: #ccc !important;
+            cursor: not-allowed;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .human {
+            background: #f0f7ff;
+            border-left: 4px solid #2196f3;
+        }
+
+        .assistant {
+            background: #f5f5f5;
+            border-left: 4px solid #4caf50;
+        }
+
+        .sender {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .content {
+            line-height: 1.5;
+        }
+        
+        /* Markdown styles */
+        .markdown-content h1, .markdown-content h2, .markdown-content h3, 
+        .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            font-weight: bold;
+        }
+        
+        .markdown-content h1 {
+            font-size: 1.8em;
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+        
+        .markdown-content h2 {
+            font-size: 1.5em;
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+        }
+        
+        .markdown-content h3 {
+            font-size: 1.3em;
+        }
+        
+        .markdown-content h4 {
+            font-size: 1.1em;
+        }
+        
+        .markdown-content p {
+            margin-bottom: 1em;
+        }
+        
+        .markdown-content ul, .markdown-content ol {
+            margin-bottom: 1em;
+            padding-left: 2em;
+        }
+        
+        .markdown-content li {
+            margin-bottom: 0.5em;
+        }
+        
+        .markdown-content code {
+            background-color: #f6f8fa;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 85%;
+        }
+        
+        .markdown-content pre {
+            background-color: #f6f8fa;
+            border-radius: 3px;
+            padding: 16px;
+            overflow: auto;
+            margin-bottom: 1em;
+        }
+        
+        .markdown-content pre code {
+            background-color: transparent;
+            padding: 0;
+            font-size: 100%;
+        }
+        
+        .markdown-content blockquote {
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+            margin-bottom: 1em;
+        }
+        
+        .markdown-content a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        
+        .markdown-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .markdown-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 1em;
+        }
+        
+        .markdown-content table th, .markdown-content table td {
+            padding: 6px 13px;
+            border: 1px solid #dfe2e5;
+        }
+        
+        .markdown-content table th {
+            background-color: #f6f8fa;
+            font-weight: bold;
+        }
+
+        .timestamp {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            display: none;
+            animation: fadeIn 0.3s, fadeOut 0.3s 1.7s;
+        }
+
+        @keyframes fadeIn {
+            from {opacity: 0;}
+            to {opacity: 1;}
+        }
+
+        @keyframes fadeOut {
+            from {opacity: 1;}
+            to {opacity: 0;}
+        }
+
+        .attachments, .thinking, .artifacts {
+            margin-top: 10px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+
+        .attachment, .thinking-item, .artifact-item {
+            margin-top: 10px;
+        }
+
+        .collapsible-toggle {
+            background: #f0f0f0;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            text-align: left;
+            font-size: 14px;
+            color: black;
+        }
+
+        .thinking-toggle {
+            background: #fff3cd;
+        }
+
+        .thinking-toggle:hover {
+            background: #ffeeba;
+        }
+
+        .artifact-toggle {
+            background: #d1ecf1;
+        }
+
+        .artifact-toggle:hover {
+            background: #bee5eb;
+        }
+
+        .attachment-toggle:hover {
+            background: #e0e0e0;
+        }
+
+        .collapsible-content {
+            display: none;
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            margin-top: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .content code {
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+        }
+        
+        .thinking-content {
+            background: #fff9e6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            white-space: pre-wrap;
+        }
+        
+        .artifact-content {
+            background: #eaf7f9;
+        }
+
+        .collapsible-content.visible {
+            display: block;
+        }
+
+        .toggle-icon {
+            display: inline-block;
+            margin-right: 8px;
+            transition: transform 0.2s;
+        }
+
+        .toggle-icon.rotated {
+            transform: rotate(90deg);
+        }
+        
+        .artifact-content code {
+            display: block;
+            white-space: pre-wrap;
+            background-color: #f6f8fa;
+            border-radius: 3px;
+            padding: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="input-container">
+        <div class="error" id="errorMessage"></div>
+        <textarea id="jsonInput" class="json-input" placeholder="Paste your Claude chat JSON here..."></textarea>
+        <div class="button-container">
+            <button id="renderButton">Render chat</button>
+            <button id="copyMdButton" class="copy-md-button button-disabled">Copy as markdown</button>
+        </div>
+    </div>
+    <div id="chatContainer" class="chat-container"></div>
+    <div id="toast" class="toast">Copied to clipboard!</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.2.12/marked.min.js"></script>
+    <script>
+        let currentChatData = null;
+        
+        // Configure marked to handle GitHub Flavored Markdown
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            headerIds: false
+        });
+
+        function formatTimestamp(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 2000);
+        }
+
+        function convertToMarkdown(chatData) {
+            if (!chatData || !chatData.content) return '';
+            
+            let markdown = '';
+            
+            // Add sender and timestamp
+            const timestamp = formatTimestamp(chatData.created_at);
+            markdown += `**${chatData.sender.charAt(0).toUpperCase() + chatData.sender.slice(1)}** (${timestamp}):\n\n`;
+            
+            // Add thinking content if it exists for assistant messages
+            if (chatData.sender === 'assistant' && chatData.content) {
+                const thinkingItems = chatData.content.filter(item => item.type === 'thinking');
+                if (thinkingItems.length > 0) {
+                    markdown += `<details><summary>Claude's thinking process</summary>\n\n`;
+                    thinkingItems.forEach(item => {
+                        markdown += item.thinking + '\n\n';
+                    });
+                    markdown += `</details>\n\n`;
+                }
+            }
+            
+            // Add text content
+            chatData.content.forEach(item => {
+                if (item.type === 'text') {
+                    markdown += item.text + '\n\n';
+                }
+            });
+            
+            // Add tool use/artifacts if they exist
+            if (chatData.sender === 'assistant' && chatData.content) {
+                const toolUseItems = chatData.content.filter(item => item.type === 'tool_use' || item.type === 'tool_result');
+                if (toolUseItems.length > 0) {
+                    markdown += `<details><summary>Artifacts and tool usage</summary>\n\n`;
+                    toolUseItems.forEach(item => {
+                        if (item.type === 'tool_use') {
+                            markdown += `**Tool:** ${item.name}\n\n`;
+                            markdown += '```json\n';
+                            markdown += JSON.stringify(item.input, null, 2);
+                            markdown += '\n```\n\n';
+                        } else if (item.type === 'tool_result') {
+                            markdown += `**Result:** ${item.name}\n\n`;
+                            if (item.content && Array.isArray(item.content)) {
+                                item.content.forEach(contentItem => {
+                                    if (contentItem.type === 'text') {
+                                        markdown += contentItem.text + '\n\n';
+                                    }
+                                });
+                            }
+                        }
+                    });
+                    markdown += `</details>\n\n`;
+                }
+            }
+            
+            return markdown;
+        }
+
+        function createCollapsibleToggle(content, title, toggleClass, contentClass) {
+            const containerDiv = document.createElement('div');
+            containerDiv.className = toggleClass === 'thinking-toggle' ? 'thinking-item' : 
+                                    toggleClass === 'artifact-toggle' ? 'artifact-item' : 
+                                    'attachment';
+
+            const toggleButton = document.createElement('button');
+            toggleButton.className = `collapsible-toggle ${toggleClass}`;
+            
+            const toggleIcon = document.createElement('span');
+            toggleIcon.className = 'toggle-icon';
+            toggleIcon.textContent = '►';
+
+            const toggleText = document.createElement('span');
+            toggleText.textContent = title;
+
+            toggleButton.appendChild(toggleIcon);
+            toggleButton.appendChild(toggleText);
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = `collapsible-content ${contentClass}`;
+            
+            if (typeof content === 'string') {
+                contentDiv.textContent = content;
+            } else {
+                contentDiv.appendChild(content);
+            }
+
+            toggleButton.addEventListener('click', () => {
+                contentDiv.classList.toggle('visible');
+                toggleIcon.classList.toggle('rotated');
+            });
+
+            containerDiv.appendChild(toggleButton);
+            containerDiv.appendChild(contentDiv);
+            return containerDiv;
+        }
+
+        function renderThinking(thinkingItem) {
+            return createCollapsibleToggle(
+                thinkingItem.thinking,
+                "Claude's thinking process",
+                'thinking-toggle',
+                'thinking-content'
+            );
+        }
+
+        function renderArtifact(toolUseItem, toolResultItem) {
+            const artifactContent = document.createElement('div');
+            
+            // Create the artifact header
+            const artifactHeader = document.createElement('div');
+            let artifactName = '';
+            let artifactType = '';
+            let artifactLanguage = '';
+            
+            if (toolUseItem && toolUseItem.input) {
+                artifactName = toolUseItem.input.title || toolUseItem.input.id || 'Unnamed artifact';
+                artifactType = toolUseItem.input.type || '';
+                artifactLanguage = toolUseItem.input.language || '';
+            }
+            
+            artifactHeader.innerHTML = `<strong>${artifactName}</strong>${artifactType ? ` (${artifactType})` : ''}${artifactLanguage ? ` - ${artifactLanguage}` : ''}`;
+            artifactContent.appendChild(artifactHeader);
+            
+            // Add the artifact content if available
+            if (toolUseItem && toolUseItem.input && toolUseItem.input.content) {
+                const contentContainer = document.createElement('div');
+                
+                // Format code properly
+                if (artifactType === 'application/vnd.ant.code' || 
+                    artifactType === 'text/html' || 
+                    artifactType === 'image/svg+xml' ||
+                    artifactLanguage) {
+                    
+                    const pre = document.createElement('pre');
+                    const code = document.createElement('code');
+                    
+                    // Format code properly with optional language
+                    if (artifactLanguage) {
+                        code.className = `language-${artifactLanguage}`;
+                    }
+                    
+                    code.textContent = toolUseItem.input.content;
+                    pre.appendChild(code);
+                    contentContainer.appendChild(pre);
+                } else {
+                    // Try to render as markdown if appropriate
+                    try {
+                        contentContainer.innerHTML = marked.parse(toolUseItem.input.content);
+                    } catch (e) {
+                        // Fallback to plain text if markdown parsing fails
+                        contentContainer.textContent = toolUseItem.input.content;
+                    }
+                }
+                
+                artifactContent.appendChild(contentContainer);
+            }
+            
+            // Add the result if available
+            if (toolResultItem && toolResultItem.content) {
+                const resultBlock = document.createElement('div');
+                resultBlock.innerHTML = `<strong>Result:</strong>`;
+                
+                toolResultItem.content.forEach(item => {
+                    if (item.type === 'text') {
+                        const resultText = document.createElement('div');
+                        resultText.textContent = item.text;
+                        resultBlock.appendChild(resultText);
+                    }
+                });
+                
+                artifactContent.appendChild(resultBlock);
+            }
+            
+            return createCollapsibleToggle(
+                artifactContent,
+                `Artifact: ${artifactName}`,
+                'artifact-toggle',
+                'artifact-content'
+            );
+        }
+
+        function renderMessage(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.sender}`;
+            
+            const senderDiv = document.createElement('div');
+            senderDiv.className = 'sender';
+            senderDiv.textContent = message.sender.charAt(0).toUpperCase() + message.sender.slice(1);
+            
+            messageDiv.appendChild(senderDiv);
+            
+            // Add thinking sections for assistant messages (at the top)
+            if (message.sender === 'assistant' && message.content) {
+                const thinkingItems = message.content.filter(item => item.type === 'thinking');
+                if (thinkingItems.length > 0) {
+                    const thinkingDiv = document.createElement('div');
+                    thinkingDiv.className = 'thinking';
+                    
+                    thinkingItems.forEach(item => {
+                        thinkingDiv.appendChild(renderThinking(item));
+                    });
+                    
+                    messageDiv.appendChild(thinkingDiv);
+                }
+            }
+            
+            // Add regular text content with markdown rendering
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'content markdown-content';
+            
+            message.content.forEach(item => {
+                if (item.type === 'text') {
+                    // Use marked to render markdown
+                    contentDiv.innerHTML = marked.parse(item.text);
+                }
+            });
+            
+            messageDiv.appendChild(contentDiv);
+            
+            // Add timestamp
+            const timestampDiv = document.createElement('div');
+            timestampDiv.className = 'timestamp';
+            timestampDiv.textContent = formatTimestamp(message.created_at);
+            messageDiv.appendChild(timestampDiv);
+            
+            // Add attachments if they exist
+            if (message.attachments && message.attachments.length > 0) {
+                const attachmentsDiv = document.createElement('div');
+                attachmentsDiv.className = 'attachments';
+                
+                message.attachments.forEach((attachment, index) => {
+                    attachmentsDiv.appendChild(
+                        createCollapsibleToggle(
+                            attachment.extracted_content || JSON.stringify(attachment, null, 2),
+                            `Attachment ${index + 1}: ${attachment.file_name || 'Unknown'}`,
+                            'attachment-toggle',
+                            ''
+                        )
+                    );
+                });
+                
+                messageDiv.appendChild(attachmentsDiv);
+            }
+            
+            // Add artifacts for assistant messages (at the bottom)
+            if (message.sender === 'assistant' && message.content) {
+                const toolUseItems = message.content.filter(item => item.type === 'tool_use');
+                const toolResultItems = message.content.filter(item => item.type === 'tool_result');
+                
+                if (toolUseItems.length > 0) {
+                    const artifactsDiv = document.createElement('div');
+                    artifactsDiv.className = 'artifacts';
+                    
+                    // Group tool use with their results
+                    for (let i = 0; i < toolUseItems.length; i++) {
+                        const toolUse = toolUseItems[i];
+                        // Find corresponding result (if any)
+                        const toolResult = toolResultItems.find(item => 
+                            item.name === toolUse.name && 
+                            message.content.indexOf(item) > message.content.indexOf(toolUse)
+                        );
+                        
+                        artifactsDiv.appendChild(renderArtifact(toolUse, toolResult));
+                    }
+                    
+                    messageDiv.appendChild(artifactsDiv);
+                }
+            }
+            
+            return messageDiv;
+        }
+
+        function renderChat(chatData) {
+            const container = document.getElementById('chatContainer');
+            container.innerHTML = '';
+            
+            // Handle the case where we get a single message JSON
+            // rather than an array of messages
+            if (!chatData.chat_messages) {
+                container.appendChild(renderMessage(chatData));
+            } else {
+                // Handle the case where we get a JSON with an array of messages
+                chatData.chat_messages.forEach(message => {
+                    container.appendChild(renderMessage(message));
+                });
+            }
+
+            // Enable the copy markdown button
+            document.getElementById('copyMdButton').classList.remove('button-disabled');
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.style.display = 'none';
+        }
+
+        document.getElementById('renderButton').addEventListener('click', () => {
+            hideError();
+            const jsonInput = document.getElementById('jsonInput').value;
+            
+            try {
+                currentChatData = JSON.parse(jsonInput);
+                renderChat(currentChatData);
+            } catch (error) {
+                showError('Error parsing JSON: ' + error.message);
+            }
+        });
+
+        document.getElementById('copyMdButton').addEventListener('click', () => {
+            if (!currentChatData) return;
+            
+            let markdown = '';
+            
+            // Handle the case where we get a single message JSON
+            if (!currentChatData.chat_messages) {
+                markdown = convertToMarkdown(currentChatData);
+            } else {
+                // Handle the case where we get a JSON with an array of messages
+                currentChatData.chat_messages.forEach(message => {
+                    markdown += convertToMarkdown(message);
+                    markdown += '---\n\n';
+                });
+            }
+            
+            navigator.clipboard.writeText(markdown).then(() => {
+                showToast();
+            }).catch(err => {
+                showError('Failed to copy to clipboard: ' + err.message);
+            });
+        });
+    </script>
+</body>
+</html>

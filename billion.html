@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎂 One Billion Seconds</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #05030f;
+      --surface: #0e0a1f;
+      --surface2: #17113a;
+      --gold: #f5c842;
+      --gold2: #ffae00;
+      --pink: #ff6bb5;
+      --blue: #5ab4ff;
+      --mint: #5affd6;
+      --text: #e8e0ff;
+      --muted: #9087b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Nunito', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Stars ── */
+    #starfield {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .star {
+      position: absolute;
+      border-radius: 50%;
+      background: white;
+      animation: twinkle var(--d, 3s) ease-in-out infinite;
+      animation-delay: var(--delay, 0s);
+      opacity: var(--op, 0.6);
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: var(--op, 0.6); transform: scale(1); }
+      50% { opacity: 0.15; transform: scale(0.6); }
+    }
+
+    /* ── Layout ── */
+    main {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 680px;
+      padding: 2rem 1.5rem 4rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-top: 2rem;
+    }
+
+    .headline {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(2.4rem, 8vw, 4rem);
+      line-height: 1;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--pink) 60%, var(--blue) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 24px rgba(245,200,66,0.35));
+    }
+
+    .subhead {
+      margin-top: 0.6rem;
+      font-size: 1rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px;
+      padding: 2rem;
+      width: 100%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    /* ── Form ── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    input {
+      background: var(--surface2);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 0.65rem 0.9rem;
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.9rem;
+      width: 100%;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      appearance: none;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(245,200,66,0.15);
+    }
+
+    /* ── Searchable TZ combo ── */
+    .tz-combo {
+      position: relative;
+    }
+
+    .tz-combo .tz-input {
+      cursor: pointer;
+    }
+
+    .tz-combo .tz-input.open {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(245,200,66,0.15);
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+
+    .tz-dropdown {
+      display: none;
+      position: absolute;
+      left: 0; right: 0;
+      top: 100%;
+      background: var(--surface2);
+      border: 1.5px solid var(--gold);
+      border-top: none;
+      border-bottom-left-radius: 10px;
+      border-bottom-right-radius: 10px;
+      z-index: 100;
+      max-height: 220px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--muted) transparent;
+    }
+
+    .tz-combo.open .tz-dropdown { display: block; }
+
+    .tz-list {
+      list-style: none;
+      padding: 0.3rem 0;
+    }
+
+    .tz-list li {
+      padding: 0.45rem 0.9rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+
+    .tz-list li:hover, .tz-list li.active {
+      background: rgba(245,200,66,0.12);
+      color: var(--gold);
+    }
+
+    .tz-list li.group-header {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      padding: 0.5rem 0.9rem 0.2rem;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .tz-list li.group-header:hover { background: none; color: var(--muted); }
+
+    .tz-list .no-results {
+      color: var(--muted);
+      font-style: italic;
+      text-align: center;
+      padding: 0.8rem;
+      cursor: default;
+    }
+
+    .tz-note {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+
+    .btn {
+      grid-column: 1 / -1;
+      margin-top: 0.5rem;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: #1a1000;
+      border: none;
+      border-radius: 12px;
+      padding: 0.85rem 2rem;
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.2rem;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+      box-shadow: 0 4px 20px rgba(245,200,66,0.35);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(245,200,66,0.5);
+      filter: brightness(1.08);
+    }
+
+    .btn:active { transform: translateY(0); }
+
+    /* ── Result ── */
+    #result {
+      width: 100%;
+      display: none;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    #result.show { display: flex; animation: fadeUp 0.5s ease forwards; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px;
+      padding: 1.8rem;
+      width: 100%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+
+    .result-card.highlight {
+      border-color: rgba(245,200,66,0.4);
+      background: linear-gradient(135deg, rgba(245,200,66,0.06), rgba(255,110,181,0.04));
+      box-shadow: 0 0 60px rgba(245,200,66,0.12), 0 8px 40px rgba(0,0,0,0.5);
+    }
+
+    .result-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .billion-date {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(1.5rem, 5vw, 2.2rem);
+      background: linear-gradient(135deg, var(--gold), var(--pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+
+    .billion-time {
+      font-family: 'Space Mono', monospace;
+      font-size: 1rem;
+      color: var(--mint);
+      margin-top: 0.3rem;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.3rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+    }
+
+    .status-badge.future { background: rgba(90,180,255,0.15); color: var(--blue); border: 1px solid rgba(90,180,255,0.3); }
+    .status-badge.past   { background: rgba(90,255,214,0.12); color: var(--mint); border: 1px solid rgba(90,255,214,0.3); }
+    .status-badge.today  { background: rgba(245,200,66,0.15); color: var(--gold); border: 1px solid rgba(245,200,66,0.4); }
+
+    /* ── Countdown / Elapsed ── */
+    .countdown-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.6rem;
+      margin-top: 0.8rem;
+    }
+
+    .cd-unit {
+      background: var(--surface2);
+      border-radius: 12px;
+      padding: 0.7rem 0.4rem;
+      text-align: center;
+    }
+
+    .cd-num {
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(1.1rem, 3.5vw, 1.5rem);
+      font-weight: 700;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .cd-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-top: 0.3rem;
+    }
+
+    /* ── Age at time ── */
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 0.6rem;
+    }
+
+    .meta-chip {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.82rem;
+      color: var(--text);
+    }
+
+    .meta-chip span { color: var(--blue); font-family: 'Space Mono', monospace; font-weight: 700; }
+
+
+
+    /* ── Leap second note ── */
+    .leap-note {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .leap-note a { color: var(--blue); text-decoration: none; }
+
+    /* ── Confetti ── */
+    .confetti-piece {
+      position: fixed;
+      width: 8px;
+      height: 8px;
+      pointer-events: none;
+      z-index: 999;
+      border-radius: 2px;
+      animation: confettiFall linear forwards;
+    }
+
+    @keyframes confettiFall {
+      0%   { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+
+    /* ── Celebration overlay ── */
+    #party {
+      display: none;
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 998;
+    }
+
+    .party-text {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(3rem, 10vw, 6rem);
+      text-align: center;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(135deg, var(--gold), var(--pink), var(--mint));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: partyPop 3s ease forwards;
+      pointer-events: none;
+    }
+
+    @keyframes partyPop {
+      0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+      70%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .field.full { grid-column: 1; }
+      .btn { grid-column: 1; }
+      .countdown-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    select option { background: #1a1040; }
+  </style>
+</head>
+<body>
+
+<div id="starfield"></div>
+<div id="party"><p class="party-text"></p></div>
+
+<main>
+  <header>
+    <h1 class="headline">One Billion Seconds</h1>
+    <p class="subhead">The birthday nobody tells you about 🎂</p>
+  </header>
+
+  <div class="card">
+    <div class="form-grid">
+      <div class="field">
+        <label for="bdate">Date of birth</label>
+        <input type="date" id="bdate" />
+      </div>
+      <div class="field">
+        <label for="btime">Time of birth <em style="font-size:0.7rem;font-weight:400">(optional)</em></label>
+        <input type="time" id="btime" value="00:00" />
+      </div>
+      <div class="field">
+        <label>Birth timezone</label>
+        <div class="tz-combo" id="combo-birth">
+          <input type="text" class="tz-input" placeholder="Search timezones…" autocomplete="off" />
+          <div class="tz-dropdown">
+            <ul class="tz-list"></ul>
+          </div>
+        </div>
+        <p class="tz-note">Where you were born 🌍</p>
+      </div>
+      <div class="field">
+        <label>Display timezone</label>
+        <div class="tz-combo" id="combo-display">
+          <input type="text" class="tz-input" placeholder="Search timezones…" autocomplete="off" />
+          <div class="tz-dropdown">
+            <ul class="tz-list"></ul>
+          </div>
+        </div>
+        <p class="tz-note">Where you want to see the result 📍</p>
+      </div>
+      <button class="btn full" onclick="calculate()">Calculate my billionth second ✨</button>
+    </div>
+  </div>
+
+  <div id="result">
+    <div class="result-card highlight">
+      <div class="result-label">Your one billionth second</div>
+      <div id="r-badge" class="status-badge future">⏳ Still to come</div>
+      <div class="billion-date" id="r-date">—</div>
+      <div class="billion-time" id="r-time">—</div>
+
+      <div class="meta-row" id="r-meta"></div>
+    </div>
+
+    <div class="result-card" id="r-countdown-card">
+      <div class="result-label" id="r-cd-label">Time remaining</div>
+      <div class="countdown-grid">
+        <div class="cd-unit"><div class="cd-num" id="cd-d">0</div><div class="cd-label">days</div></div>
+        <div class="cd-unit"><div class="cd-num" id="cd-h">0</div><div class="cd-label">hours</div></div>
+        <div class="cd-unit"><div class="cd-num" id="cd-m">0</div><div class="cd-label">mins</div></div>
+        <div class="cd-unit"><div class="cd-num" id="cd-s">0</div><div class="cd-label">secs</div></div>
+      </div>
+    </div>
+
+    <div class="result-card" style="text-align:center;">
+      <div class="result-label">You are currently</div>
+      <div style="font-family:'Fredoka One',cursive; font-size:clamp(1.6rem,5vw,2.4rem); background:linear-gradient(135deg,var(--mint),var(--blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1.2; margin:0.2rem 0;" id="r-seconds-old">—</div>
+      <div style="font-size:0.82rem; color:var(--muted); margin-top:0.3rem;">seconds old</div>
+    </div>
+
+
+
+    <p class="leap-note">
+      ⚛︎ <strong>A note on leap seconds:</strong> Since 1972, <strong>27 leap seconds</strong> have been inserted into UTC to keep civil time aligned with Earth's rotation. This calculator uses standard civil time (UTC), which is how virtually all software clocks work. Your "true" billionth TAI second technically arrives ~27 seconds earlier — but honestly, celebrate both. 🥂
+    </p>
+  </div>
+
+</main>
+
+<script>
+  // ── Stars ──────────────────────────────────────────────────────────────
+  const sf = document.getElementById('starfield');
+  for (let i = 0; i < 180; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `
+      width:${sz}px; height:${sz}px;
+      top:${Math.random()*100}%;
+      left:${Math.random()*100}%;
+      --d:${(Math.random()*4+1.5).toFixed(1)}s;
+      --delay:${(Math.random()*5).toFixed(1)}s;
+      --op:${(Math.random()*0.5+0.2).toFixed(2)};
+    `;
+    sf.appendChild(s);
+  }
+
+  // ── Timezones ──────────────────────────────────────────────────────────
+  const userTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  let tzList = [];
+  try {
+    tzList = Intl.supportedValuesOf('timeZone');
+  } catch {
+    tzList = [
+      'Pacific/Auckland','Australia/Sydney','Australia/Melbourne','Australia/Brisbane',
+      'Australia/Perth','Asia/Tokyo','Asia/Singapore','Asia/Kolkata','Europe/London',
+      'Europe/Paris','Europe/Berlin','America/New_York','America/Chicago',
+      'America/Denver','America/Los_Angeles','America/Anchorage','Pacific/Honolulu',
+      'UTC'
+    ];
+  }
+
+  // ── Searchable combo widget ────────────────────────────────────────────
+  function makeCombo(containerId, initialTZ) {
+    const container = document.getElementById(containerId);
+    const input     = container.querySelector('.tz-input');
+    const list      = container.querySelector('.tz-list');
+    let   value     = initialTZ;
+    let   activeIdx = -1;
+
+    input.value = initialTZ.replace(/_/g, ' ');
+
+    function renderList(query) {
+      const q = query.toLowerCase().replace(/\s/g, '_');
+      list.innerHTML = '';
+      activeIdx = -1;
+
+      const filtered = query ? tzList.filter(tz => tz.toLowerCase().includes(q)) : tzList;
+
+      if (!filtered.length) {
+        const li = document.createElement('li');
+        li.className = 'no-results';
+        li.textContent = 'No timezones found';
+        list.appendChild(li);
+        return;
+      }
+
+      // Group results
+      const groups = {};
+      filtered.forEach(tz => {
+        const region = tz.split('/')[0];
+        if (!groups[region]) groups[region] = [];
+        groups[region].push(tz);
+      });
+
+      Object.keys(groups).sort().forEach(region => {
+        const header = document.createElement('li');
+        header.className = 'group-header';
+        header.textContent = region;
+        list.appendChild(header);
+
+        groups[region].forEach(tz => {
+          const li = document.createElement('li');
+          li.textContent = tz.replace(/_/g, ' ');
+          li.dataset.value = tz;
+          if (tz === value) li.classList.add('active');
+          li.addEventListener('mousedown', e => {
+            e.preventDefault();
+            select(tz);
+          });
+          list.appendChild(li);
+        });
+      });
+    }
+
+    function select(tz) {
+      value = tz;
+      input.value = tz.replace(/_/g, ' ');
+      close();
+    }
+
+    function open() {
+      container.classList.add('open');
+      input.classList.add('open');
+      renderList('');
+      // Scroll selected into view
+      setTimeout(() => {
+        const active = list.querySelector('.active');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+      }, 0);
+    }
+
+    function close() {
+      container.classList.remove('open');
+      input.classList.remove('open');
+      // Reset display to current value
+      input.value = value.replace(/_/g, ' ');
+    }
+
+    input.addEventListener('focus', () => { open(); });
+    input.addEventListener('input', () => { renderList(input.value); });
+
+    input.addEventListener('keydown', e => {
+      const items = [...list.querySelectorAll('li:not(.group-header):not(.no-results)')];
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIdx = Math.min(activeIdx + 1, items.length - 1);
+        items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+        items[activeIdx]?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIdx = Math.max(activeIdx - 1, 0);
+        items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+        items[activeIdx]?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeIdx >= 0 && items[activeIdx]) select(items[activeIdx].dataset.value);
+      } else if (e.key === 'Escape') {
+        close();
+        input.blur();
+      }
+    });
+
+    input.addEventListener('blur', () => { setTimeout(close, 150); });
+
+    return { getValue: () => value };
+  }
+
+  // ── Restore from localStorage ─────────────────────────────────────────
+  const saved = (() => { try { return JSON.parse(localStorage.getItem('billion_prefs') || '{}'); } catch { return {}; } })();
+
+  const comboBirth   = makeCombo('combo-birth',   saved.tzBirth   || userTZ);
+  const comboDisplay = makeCombo('combo-display',  saved.tzDisplay || userTZ);
+
+  if (saved.bdate) document.getElementById('bdate').value = saved.bdate;
+  if (saved.btime) document.getElementById('btime').value = saved.btime;
+
+  // ── Constants ──────────────────────────────────────────────────────────
+  const BILLION = 1_000_000_000; // seconds
+  const MS = BILLION * 1000;     // milliseconds
+
+  // ── Helpers ────────────────────────────────────────────────────────────
+  function formatInTZ(ts, tz) {
+    return new Intl.DateTimeFormat('en-AU', {
+      timeZone: tz,
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    }).format(new Date(ts));
+  }
+
+  function formatTimeInTZ(ts, tz) {
+    return new Intl.DateTimeFormat('en-AU', {
+      timeZone: tz,
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: true, timeZoneName: 'short'
+    }).format(new Date(ts));
+  }
+
+  function formatAge(ms) {
+    let s = Math.floor(ms / 1000);
+    const y = Math.floor(s / 31557600); s %= 31557600;
+    const mo = Math.floor(s / 2629800); s %= 2629800;
+    const d = Math.floor(s / 86400);
+    const parts = [];
+    if (y)  parts.push(`${y} year${y!==1?'s':''}`);
+    if (mo) parts.push(`${mo} month${mo!==1?'s':''}`);
+    if (d)  parts.push(`${d} day${d!==1?'s':''}`);
+    return parts.join(', ') || 'today!';
+  }
+
+  // ── Parse birth in timezone ────────────────────────────────────────────
+  // We build an ISO-ish string and use the timezone offset at that moment.
+  // JS doesn't support parsing with an arbitrary IANA timezone directly, so we use
+  // Intl to find the UTC equivalent.
+  function parseBirthInTZ(dateStr, timeStr, tz) {
+    // Use Temporal if available, otherwise fallback
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const [hh, mm] = (timeStr || '00:00').split(':').map(Number);
+
+    // Trick: format a known UTC date in the target TZ to find the offset
+    // We'll iterate to find the UTC ms that corresponds to the local time
+    // Use a two-pass approach: estimate, then correct for DST
+    const estimate = Date.UTC(y, m-1, d, hh, mm, 0);
+
+    // Find offset at estimated time
+    const offset = getUTCOffset(estimate, tz);
+    const adjusted = estimate - offset * 60000;
+
+    // Re-check in case DST boundary crossed
+    const offset2 = getUTCOffset(adjusted, tz);
+    return adjusted + (offset - offset2) * 60000;
+  }
+
+  function getUTCOffset(utcMs, tz) {
+    // Returns offset in minutes (UTC+X → positive)
+    const localStr = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false
+    }).format(new Date(utcMs));
+
+    // Parse the formatted local time back
+    const match = localStr.match(/(\d+)\/(\d+)\/(\d+),\s*(\d+):(\d+):(\d+)/);
+    if (!match) return 0;
+    const [, dd, mm, yyyy, hh, mi, ss] = match.map(Number);
+    const localUTC = Date.UTC(yyyy, mm-1, dd, hh, mi, ss);
+    return (localUTC - utcMs) / 60000;
+  }
+
+  // ── Countdown ticker ───────────────────────────────────────────────────
+  let ticker = null;
+  let billionMs = null;
+  let birthMsGlobal = null;
+
+  function tick() {
+    const now = Date.now();
+    const diff = billionMs - now;
+
+    // Seconds old counter
+    const secondsOld = Math.floor((now - birthMsGlobal) / 1000);
+    const el = document.getElementById('r-seconds-old');
+    if (el) el.textContent = secondsOld.toLocaleString();
+
+    const cdCard = document.getElementById('r-countdown-card');
+    const cdLabel = document.getElementById('r-cd-label');
+
+    if (Math.abs(diff) < 1000) {
+      // RIGHT NOW!
+      showParty();
+    }
+
+    if (diff < 0) {
+      // Past – show elapsed since
+      cdLabel.textContent = 'Time since your billion-second birthday';
+      const elapsed = Math.abs(diff);
+      const s  = Math.floor(elapsed / 1000) % 60;
+      const mi = Math.floor(elapsed / 60000) % 60;
+      const h  = Math.floor(elapsed / 3600000) % 24;
+      const d  = Math.floor(elapsed / 86400000);
+      document.getElementById('cd-d').textContent = d;
+      document.getElementById('cd-h').textContent = h;
+      document.getElementById('cd-m').textContent = mi;
+      document.getElementById('cd-s').textContent = s;
+    } else {
+      cdLabel.textContent = 'Time until your billion-second birthday';
+      const s  = Math.floor(diff / 1000) % 60;
+      const mi = Math.floor(diff / 60000) % 60;
+      const h  = Math.floor(diff / 3600000) % 24;
+      const d  = Math.floor(diff / 86400000);
+      document.getElementById('cd-d').textContent = d;
+      document.getElementById('cd-h').textContent = h;
+      document.getElementById('cd-m').textContent = mi;
+      document.getElementById('cd-s').textContent = s;
+    }
+  }
+
+  // ── Confetti ───────────────────────────────────────────────────────────
+  function spawnConfetti(n = 80) {
+    const colours = ['#f5c842','#ff6bb5','#5ab4ff','#5affd6','#ff9f43','#a29bfe'];
+    for (let i = 0; i < n; i++) {
+      setTimeout(() => {
+        const el = document.createElement('div');
+        el.className = 'confetti-piece';
+        el.style.left = Math.random() * 100 + 'vw';
+        el.style.top = '-10px';
+        el.style.background = colours[Math.floor(Math.random() * colours.length)];
+        el.style.width = (Math.random() * 8 + 4) + 'px';
+        el.style.height = (Math.random() * 8 + 4) + 'px';
+        el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+        el.style.animationDuration = (Math.random() * 2 + 1.5) + 's';
+        el.style.animationDelay = (Math.random() * 0.5) + 's';
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 4000);
+      }, i * 20);
+    }
+  }
+
+  function showParty() {
+    const p = document.getElementById('party');
+    const pt = p.querySelector('.party-text');
+    const msgs = ['🎉 ONE BILLION! 🎉', '🥳 BILLIONAIRE! 🥳', '🌟 A BILLION SECONDS! 🌟'];
+    pt.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+    p.style.display = 'block';
+    spawnConfetti(120);
+    setTimeout(() => { p.style.display = 'none'; }, 3200);
+  }
+
+  // ── Main calculate ─────────────────────────────────────────────────────
+  function calculate() {
+    const dateVal   = document.getElementById('bdate').value;
+    const timeVal   = document.getElementById('btime').value;
+    const tz        = comboBirth.getValue();
+    const tzDisplay = comboDisplay.getValue();
+
+    try {
+      localStorage.setItem('billion_prefs', JSON.stringify({ bdate: dateVal, btime: timeVal, tzBirth: tz, tzDisplay }));
+    } catch {}
+
+    if (!dateVal) {
+      alert('Please enter your date of birth 🎂');
+      return;
+    }
+
+    const birthMs = parseBirthInTZ(dateVal, timeVal, tz);
+    birthMsGlobal = birthMs;
+    billionMs     = birthMs + MS;
+
+    const now    = Date.now();
+    const isPast = billionMs < now;
+    const isNow  = Math.abs(billionMs - now) < 60000;
+    const ageAt  = BILLION * 1000; // ms from birth to billion
+
+    // Update badge
+    const badge = document.getElementById('r-badge');
+    if (isNow) {
+      badge.className = 'status-badge today';
+      badge.textContent = '🎉 It\'s right now!!';
+      showParty();
+      spawnConfetti();
+    } else if (isPast) {
+      badge.className = 'status-badge past';
+      badge.textContent = '✅ Already celebrated!';
+    } else {
+      badge.className = 'status-badge future';
+      badge.textContent = '⏳ Still to come';
+    }
+
+    // Date display (use display timezone, not birth timezone)
+    document.getElementById('r-date').textContent = formatInTZ(billionMs, tzDisplay);
+    document.getElementById('r-time').textContent = formatTimeInTZ(billionMs, tzDisplay);
+
+    // Age in years at the time
+    const yearsExact = BILLION / (365.25 * 24 * 3600);
+    const years      = Math.floor(yearsExact);
+    const days       = Math.round((yearsExact - years) * 365.25);
+
+    const meta = document.getElementById('r-meta');
+    meta.innerHTML = `
+      <div class="meta-chip">Age: <span>~${years} yrs, ${days} days</span></div>
+      <div class="meta-chip">Exact: <span>${BILLION.toLocaleString()} seconds</span></div>
+      <div class="meta-chip">Born TZ: <span>${tz.replace(/_/g,' ')}</span></div>
+      <div class="meta-chip">Shown in: <span>${tzDisplay.replace(/_/g,' ')}</span></div>
+    `;
+
+
+
+    // Show result
+    document.getElementById('result').classList.add('show');
+    document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Start ticker
+    if (ticker) clearInterval(ticker);
+    tick();
+    ticker = setInterval(tick, 1000);
+  }
+</script>
+
+</body>
+</html>

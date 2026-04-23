@@ -365,8 +365,6 @@
 
     .meta-chip span { color: var(--blue); font-family: 'Space Mono', monospace; font-weight: 700; }
 
-
-
     /* ── Leap second note ── */
     .leap-note {
       font-size: 0.78rem;
@@ -482,6 +480,13 @@
   </div>
 
   <div id="result">
+
+    <div class="result-card" style="text-align:center;">
+      <div class="result-label">You are currently</div>
+      <div style="font-family:'Fredoka One',cursive; font-size:clamp(1.6rem,5vw,2.4rem); background:linear-gradient(135deg,var(--mint),var(--blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1.2; margin:0.2rem 0;" id="r-seconds-old">—</div>
+      <div style="font-size:0.82rem; color:var(--muted); margin-top:0.3rem;">seconds old</div>
+    </div>
+
     <div class="result-card highlight">
       <div class="result-label">Your one billionth second</div>
       <div id="r-badge" class="status-badge future">⏳ Still to come</div>
@@ -500,14 +505,6 @@
         <div class="cd-unit"><div class="cd-num" id="cd-s">0</div><div class="cd-label">secs</div></div>
       </div>
     </div>
-
-    <div class="result-card" style="text-align:center;">
-      <div class="result-label">You are currently</div>
-      <div style="font-family:'Fredoka One',cursive; font-size:clamp(1.6rem,5vw,2.4rem); background:linear-gradient(135deg,var(--mint),var(--blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1.2; margin:0.2rem 0;" id="r-seconds-old">—</div>
-      <div style="font-size:0.82rem; color:var(--muted); margin-top:0.3rem;">seconds old</div>
-    </div>
-
-
 
     <p class="leap-note">
       ⚛︎ <strong>A note on leap seconds:</strong> Since 1972, <strong>27 leap seconds</strong> have been inserted into UTC to keep civil time aligned with Earth's rotation. This calculator uses standard civil time (UTC), which is how virtually all software clocks work. Your "true" billionth TAI second technically arrives ~27 seconds earlier — but honestly, celebrate both. 🥂
@@ -698,30 +695,20 @@
   }
 
   // ── Parse birth in timezone ────────────────────────────────────────────
-  // We build an ISO-ish string and use the timezone offset at that moment.
-  // JS doesn't support parsing with an arbitrary IANA timezone directly, so we use
-  // Intl to find the UTC equivalent.
   function parseBirthInTZ(dateStr, timeStr, tz) {
-    // Use Temporal if available, otherwise fallback
     const [y, m, d] = dateStr.split('-').map(Number);
     const [hh, mm] = (timeStr || '00:00').split(':').map(Number);
 
-    // Trick: format a known UTC date in the target TZ to find the offset
-    // We'll iterate to find the UTC ms that corresponds to the local time
-    // Use a two-pass approach: estimate, then correct for DST
     const estimate = Date.UTC(y, m-1, d, hh, mm, 0);
 
-    // Find offset at estimated time
     const offset = getUTCOffset(estimate, tz);
     const adjusted = estimate - offset * 60000;
 
-    // Re-check in case DST boundary crossed
     const offset2 = getUTCOffset(adjusted, tz);
     return adjusted + (offset - offset2) * 60000;
   }
 
   function getUTCOffset(utcMs, tz) {
-    // Returns offset in minutes (UTC+X → positive)
     const localStr = new Intl.DateTimeFormat('en-GB', {
       timeZone: tz,
       year: 'numeric', month: '2-digit', day: '2-digit',
@@ -729,7 +716,6 @@
       hour12: false
     }).format(new Date(utcMs));
 
-    // Parse the formatted local time back
     const match = localStr.match(/(\d+)\/(\d+)\/(\d+),\s*(\d+):(\d+):(\d+)/);
     if (!match) return 0;
     const [, dd, mm, yyyy, hh, mi, ss] = match.map(Number);
@@ -751,16 +737,13 @@
     const el = document.getElementById('r-seconds-old');
     if (el) el.textContent = secondsOld.toLocaleString();
 
-    const cdCard = document.getElementById('r-countdown-card');
     const cdLabel = document.getElementById('r-cd-label');
 
     if (Math.abs(diff) < 1000) {
-      // RIGHT NOW!
       showParty();
     }
 
     if (diff < 0) {
-      // Past – show elapsed since
       cdLabel.textContent = 'Time since your billion-second birthday';
       const elapsed = Math.abs(diff);
       const s  = Math.floor(elapsed / 1000) % 60;
@@ -838,7 +821,6 @@
     const now    = Date.now();
     const isPast = billionMs < now;
     const isNow  = Math.abs(billionMs - now) < 60000;
-    const ageAt  = BILLION * 1000; // ms from birth to billion
 
     // Update badge
     const badge = document.getElementById('r-badge');
@@ -871,8 +853,6 @@
       <div class="meta-chip">Born TZ: <span>${tz.replace(/_/g,' ')}</span></div>
       <div class="meta-chip">Shown in: <span>${tzDisplay.replace(/_/g,' ')}</span></div>
     `;
-
-
 
     // Show result
     document.getElementById('result').classList.add('show');

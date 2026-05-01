@@ -475,6 +475,11 @@
         </div>
         <p class="tz-note">Where you want to see the result 📍</p>
       </div>
+      <div class="field full">
+        <label for="bseconds">Number of seconds <em style="font-size:0.7rem;font-weight:400;text-transform:none;letter-spacing:0">(default 1,000,000,000)</em></label>
+        <input type="number" id="bseconds" value="1000000000" min="1" step="1" />
+        <p class="tz-note">For the truly curious — try a million, a trillion, whatever 🤓</p>
+      </div>
       <button class="btn full" onclick="calculate()">Calculate my billionth second ✨</button>
     </div>
   </div>
@@ -662,9 +667,7 @@
   if (saved.bdate) document.getElementById('bdate').value = saved.bdate;
   if (saved.btime) document.getElementById('btime').value = saved.btime;
 
-  // ── Constants ──────────────────────────────────────────────────────────
-  const BILLION = 1_000_000_000; // seconds
-  const MS = BILLION * 1000;     // milliseconds
+  if (saved.bseconds) document.getElementById('bseconds').value = saved.bseconds;
 
   // ── Helpers ────────────────────────────────────────────────────────────
   function formatInTZ(ts, tz) {
@@ -805,8 +808,15 @@
     const tz        = comboBirth.getValue();
     const tzDisplay = comboDisplay.getValue();
 
+    const secondsRaw = document.getElementById('bseconds').value;
+    const seconds = Math.floor(Number(secondsRaw));
+    if (!Number.isFinite(seconds) || seconds < 1) {
+      alert('Please enter a positive whole number of seconds ✨');
+      return;
+    }
+    
     try {
-      localStorage.setItem('billion_prefs', JSON.stringify({ bdate: dateVal, btime: timeVal, tzBirth: tz, tzDisplay }));
+      localStorage.setItem('billion_prefs', JSON.stringify({ bdate: dateVal, btime: timeVal, tzBirth: tz, tzDisplay, bseconds: seconds }));
     } catch {}
 
     if (!dateVal) {
@@ -816,7 +826,7 @@
 
     const birthMs = parseBirthInTZ(dateVal, timeVal, tz);
     birthMsGlobal = birthMs;
-    billionMs     = birthMs + MS;
+    billionMs     = birthMs + seconds * 1000;
 
     const now    = Date.now();
     const isPast = billionMs < now;
@@ -842,14 +852,14 @@
     document.getElementById('r-time').textContent = formatTimeInTZ(billionMs, tzDisplay);
 
     // Age in years at the time
-    const yearsExact = BILLION / (365.25 * 24 * 3600);
+    const yearsExact = seconds / (365.25 * 24 * 3600);
     const years      = Math.floor(yearsExact);
     const days       = Math.round((yearsExact - years) * 365.25);
 
     const meta = document.getElementById('r-meta');
     meta.innerHTML = `
       <div class="meta-chip">Age: <span>~${years} yrs, ${days} days</span></div>
-      <div class="meta-chip">Exact: <span>${BILLION.toLocaleString()} seconds</span></div>
+      <div class="meta-chip">Exact: <span>${seconds.toLocaleString()} seconds</span></div>
       <div class="meta-chip">Born TZ: <span>${tz.replace(/_/g,' ')}</span></div>
       <div class="meta-chip">Shown in: <span>${tzDisplay.replace(/_/g,' ')}</span></div>
     `;

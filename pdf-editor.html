@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PDF tool — merge &amp; insert</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,700&family=JetBrains+Mono:wght@400;500&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<style>
+  :root {
+    --paper: #f4efe6;
+    --ink: #1a1a1a;
+    --muted: #6b6258;
+    --line: #d8cfc0;
+    --accent: #c0492a;
+    --accent-soft: #f3d9cc;
+    --ok: #2b6e3f;
+    --shadow: 0 2px 0 #d8cfc0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); }
+  body {
+    font-family: "Inter Tight", system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    min-height: 100vh;
+    padding: 48px 24px 96px;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 32px; display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+  h1 {
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: clamp(36px, 5vw, 56px);
+    letter-spacing: -0.02em;
+    margin: 0;
+    font-variation-settings: "opsz" 96;
+  }
+  h1 em { font-style: italic; color: var(--accent); font-weight: 300; }
+  .sub { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .drop {
+    border: 1.5px dashed var(--line);
+    background: rgba(255,255,255,0.4);
+    padding: 36px 24px;
+    text-align: center;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .drop:hover, .drop.over { background: var(--accent-soft); border-color: var(--accent); }
+  .drop p { margin: 0; }
+  .drop .big { font-family: "Fraunces", serif; font-size: 22px; font-weight: 500; }
+  .drop .small { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 6px; }
+  input[type=file] { display: none; }
+
+  section { margin-top: 40px; }
+  h2 {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    margin: 0 0 14px;
+    font-weight: 500;
+  }
+
+  #files { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  .file {
+    background: #fff;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: 28px 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    cursor: grab;
+  }
+  .file.dragging { opacity: 0.4; }
+  .file .num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .file .name { font-weight: 500; font-size: 15px; word-break: break-all; }
+  .file .meta { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--muted); }
+  .file .x {
+    border: none; background: transparent; cursor: pointer; color: var(--muted);
+    font-size: 18px; line-height: 1; padding: 4px 8px;
+  }
+  .file .x:hover { color: var(--accent); }
+
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+  .tab {
+    background: none; border: none; cursor: pointer;
+    padding: 10px 18px;
+    font-family: "Fraunces", serif; font-size: 18px; font-weight: 500;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .row { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin-bottom: 14px; }
+  label {
+    display: flex; flex-direction: column; gap: 6px;
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+  }
+  select, input[type=number] {
+    font-family: "Inter Tight", sans-serif; font-size: 15px;
+    padding: 8px 10px; border: 1px solid var(--line); background: #fff;
+    min-width: 200px; border-radius: 2px;
+  }
+  input[type=number] { min-width: 100px; }
+
+  .hint { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+
+  button.go {
+    font-family: "Fraunces", serif; font-size: 18px; font-weight: 500;
+    background: var(--ink); color: var(--paper);
+    border: none; padding: 12px 22px; cursor: pointer;
+    border-radius: 2px;
+    box-shadow: 3px 3px 0 var(--accent);
+    transition: transform 0.1s;
+  }
+  button.go:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--accent); }
+  button.go:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: var(--shadow); }
+
+  #status { margin-top: 24px; font-family: "JetBrains Mono", monospace; font-size: 13px; min-height: 24px; }
+  #status .ok { color: var(--ok); }
+  #status .err { color: var(--accent); }
+  #status a {
+    color: var(--accent); font-weight: 500; text-decoration: none;
+    border-bottom: 1px solid var(--accent);
+  }
+
+  footer {
+    margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>PDF <em>tool</em></h1>
+    <div class="sub">merge · insert · links preserved</div>
+  </header>
+
+  <label for="picker" class="drop" id="drop">
+    <p class="big">Drop PDFs here</p>
+    <p class="small">or click to choose files</p>
+  </label>
+  <input id="picker" type="file" accept="application/pdf" multiple>
+
+  <section id="files-section" hidden>
+    <h2>Loaded PDFs</h2>
+    <ul id="files"></ul>
+  </section>
+
+  <section id="ops" hidden>
+    <div class="tabs">
+      <button class="tab active" data-panel="merge">Merge</button>
+      <button class="tab" data-panel="insert">Insert into</button>
+      <button class="tab" data-panel="pages">Pages</button>
+    </div>
+
+    <div class="panel active" id="panel-merge">
+      <p class="hint">Drag the cards above to set the order. Then merge — all pages from each PDF will be appended in sequence.</p>
+      <button class="go" id="btn-merge">Merge in current order</button>
+    </div>
+
+    <div class="panel" id="panel-insert">
+      <p class="hint">Insert the whole of one PDF into another at a chosen position.</p>
+      <div class="row">
+        <label>Host PDF
+          <select id="host"></select>
+        </label>
+        <label>Insert
+          <select id="guest"></select>
+        </label>
+        <label>After page (host)
+          <input type="number" id="afterPage" min="0" value="0">
+        </label>
+      </div>
+      <p class="hint">0 = at the very beginning. Use the host's page count to append at the end.</p>
+      <button class="go" id="btn-insert">Build combined PDF</button>
+    </div>
+
+    <div class="panel" id="panel-pages">
+      <p class="hint">Keep or remove specified pages from one PDF.</p>
+      <div class="row">
+        <label>PDF
+          <select id="pagesSource"></select>
+        </label>
+        <label>Pages
+          <input type="text" id="pageSpec" placeholder="e.g. 1-3, 5, 8-10" style="min-width: 220px;">
+        </label>
+        <label>Action
+          <select id="pageAction">
+            <option value="keep">Keep only these</option>
+            <option value="remove">Remove these</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint">Page numbers are 1-indexed. Use ranges (1-3), single pages (5), or both, separated by commas.</p>
+      <button class="go" id="btn-pages">Build PDF</button>
+    </div>
+  </section>
+
+  <div id="status"></div>
+
+  <footer>Runs entirely in your browser · pdf-lib 1.17.1</footer>
+</div>
+
+<script>
+const { PDFDocument } = PDFLib;
+
+// State: array of { id, name, bytes, pageCount }
+const docs = [];
+let idSeq = 0;
+
+const $ = sel => document.querySelector(sel);
+const drop = $('#drop');
+const picker = $('#picker');
+const filesEl = $('#files');
+const filesSection = $('#files-section');
+const opsSection = $('#ops');
+const statusEl = $('#status');
+const hostSel = $('#host');
+const guestSel = $('#guest');
+const afterPageInput = $('#afterPage');
+const pagesSourceSel = $('#pagesSource');
+
+function setStatus(msg, cls = '') {
+  statusEl.innerHTML = cls ? `<span class="${cls}">${msg}</span>` : msg;
+}
+
+picker.addEventListener('change', e => handleFiles(e.target.files));
+
+['dragenter','dragover'].forEach(ev =>
+  drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev =>
+  drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => {
+  if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files);
+});
+
+async function handleFiles(fileList) {
+  setStatus('Loading…');
+  for (const f of fileList) {
+    if (f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf')) continue;
+    try {
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      docs.push({
+        id: ++idSeq,
+        name: f.name,
+        bytes,
+        pageCount: doc.getPageCount()
+      });
+    } catch (err) {
+      setStatus(`Couldn't load ${f.name}: ${err.message}`, 'err');
+    }
+  }
+  picker.value = '';
+  render();
+  setStatus('');
+}
+
+function render() {
+  filesEl.innerHTML = '';
+  docs.forEach((d, i) => {
+    const li = document.createElement('li');
+    li.className = 'file';
+    li.draggable = true;
+    li.dataset.id = d.id;
+    li.innerHTML = `
+      <span class="num">${String(i+1).padStart(2,'0')}</span>
+      <span class="name">${escapeHtml(d.name)}</span>
+      <span class="meta">${d.pageCount} pp</span>
+      <button class="x" title="Remove">×</button>
+    `;
+    li.querySelector('.x').addEventListener('click', () => {
+      const idx = docs.findIndex(x => x.id === d.id);
+      if (idx >= 0) docs.splice(idx, 1);
+      render();
+    });
+    attachDrag(li);
+    filesEl.appendChild(li);
+  });
+
+  filesSection.hidden = docs.length === 0;
+  opsSection.hidden = docs.length === 0;
+
+  // Repopulate selects
+  const opts = docs.map(d => `<option value="${d.id}">${escapeHtml(d.name)} · ${d.pageCount} pp</option>`).join('');
+  hostSel.innerHTML = opts;
+  guestSel.innerHTML = opts;
+  pagesSourceSel.innerHTML = opts;
+  updateAfterPageMax();
+}
+
+function updateAfterPageMax() {
+  const host = docs.find(d => d.id == hostSel.value);
+  if (host) {
+    afterPageInput.max = host.pageCount;
+    if (+afterPageInput.value > host.pageCount) afterPageInput.value = host.pageCount;
+  }
+}
+hostSel.addEventListener('change', updateAfterPageMax);
+
+// Drag-and-drop reordering
+let dragId = null;
+function attachDrag(li) {
+  li.addEventListener('dragstart', e => {
+    dragId = +li.dataset.id;
+    li.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  li.addEventListener('dragend', () => { li.classList.remove('dragging'); dragId = null; });
+  li.addEventListener('dragover', e => {
+    e.preventDefault();
+    const targetId = +li.dataset.id;
+    if (dragId == null || targetId === dragId) return;
+    const from = docs.findIndex(d => d.id === dragId);
+    const to = docs.findIndex(d => d.id === targetId);
+    if (from < 0 || to < 0) return;
+    const [moved] = docs.splice(from, 1);
+    docs.splice(to, 0, moved);
+    render();
+    // Restore dragging class on the new node for this id
+    const newLi = filesEl.querySelector(`[data-id="${dragId}"]`);
+    if (newLi) newLi.classList.add('dragging');
+  });
+}
+
+// Tabs
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.querySelector('#panel-' + t.dataset.panel).classList.add('active');
+  });
+});
+
+// Core ops — copyPages in one call per source PDF preserves all annotations
+// including link annotations and internal cross-page references.
+async function buildMerge() {
+  if (docs.length === 0) return;
+  setStatus('Merging…');
+  try {
+    const out = await PDFDocument.create();
+    for (const d of docs) {
+      const src = await PDFDocument.load(d.bytes, { ignoreEncryption: true });
+      const pages = await out.copyPages(src, src.getPageIndices());
+      pages.forEach(p => out.addPage(p));
+    }
+    const bytes = await out.save();
+    offerDownload(bytes, 'merged.pdf', `Merged ${docs.length} PDFs (${out.getPageCount()} pages).`);
+  } catch (err) {
+    setStatus('Merge failed: ' + err.message, 'err');
+  }
+}
+
+async function buildInsert() {
+  const host = docs.find(d => d.id == hostSel.value);
+  const guest = docs.find(d => d.id == guestSel.value);
+  if (!host || !guest) { setStatus('Pick host and guest.', 'err'); return; }
+  if (host.id === guest.id) { setStatus('Host and guest must differ.', 'err'); return; }
+  const after = Math.max(0, Math.min(+afterPageInput.value || 0, host.pageCount));
+  setStatus('Building…');
+  try {
+    // Load host as the working doc — preserves host annotations natively.
+    const out = await PDFDocument.load(host.bytes, { ignoreEncryption: true });
+    const src = await PDFDocument.load(guest.bytes, { ignoreEncryption: true });
+    const pages = await out.copyPages(src, src.getPageIndices());
+    pages.forEach((p, i) => out.insertPage(after + i, p));
+    const bytes = await out.save();
+    const baseName = host.name.replace(/\.pdf$/i, '');
+    const guestBase = guest.name.replace(/\.pdf$/i, '');
+    offerDownload(bytes, `${baseName}+${guestBase}.pdf`,
+      `Inserted ${guest.pageCount} pages from "${guest.name}" into "${host.name}" after page ${after}.`);
+  } catch (err) {
+    setStatus('Insert failed: ' + err.message, 'err');
+  }
+}
+
+function offerDownload(bytes, filename, msg) {
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  statusEl.innerHTML = `<span class="ok">✓ ${msg}</span> &nbsp; <a href="${url}" download="${filename}">Download ${filename}</a>`;
+}
+
+// Parse "1-3, 5, 8-10" → sorted unique array of 1-indexed page numbers
+function parsePageSpec(spec, maxPage) {
+  const result = new Set();
+  const parts = spec.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts.length === 0) throw new Error('No pages specified.');
+  for (const part of parts) {
+    const m = part.match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+    if (!m) throw new Error(`Can't parse "${part}".`);
+    let a = +m[1], b = m[2] ? +m[2] : a;
+    if (a < 1 || b < 1) throw new Error(`Pages start at 1 ("${part}").`);
+    if (a > maxPage || b > maxPage) throw new Error(`Page out of range in "${part}" (max ${maxPage}).`);
+    if (a > b) [a, b] = [b, a];
+    for (let i = a; i <= b; i++) result.add(i);
+  }
+  return [...result].sort((x, y) => x - y);
+}
+
+async function buildPages() {
+  const src = docs.find(d => d.id == pagesSourceSel.value);
+  if (!src) { setStatus('Pick a PDF.', 'err'); return; }
+  const spec = $('#pageSpec').value.trim();
+  const action = $('#pageAction').value;
+  let specified;
+  try {
+    specified = parsePageSpec(spec, src.pageCount);
+  } catch (err) {
+    setStatus(err.message, 'err'); return;
+  }
+  // Determine the pages to keep, in order
+  let keep1based;
+  if (action === 'keep') {
+    keep1based = specified;
+  } else {
+    const removeSet = new Set(specified);
+    keep1based = [];
+    for (let i = 1; i <= src.pageCount; i++) if (!removeSet.has(i)) keep1based.push(i);
+  }
+  if (keep1based.length === 0) { setStatus('No pages would remain.', 'err'); return; }
+
+  setStatus('Building…');
+  try {
+    // Strategy that preserves links best: load the source, then delete the unwanted pages
+    // in-place (descending order so indices stay valid). This keeps the original page
+    // objects and their annotations rather than copying through a new doc.
+    const out = await PDFDocument.load(src.bytes, { ignoreEncryption: true });
+    const keepSet = new Set(keep1based);
+    for (let i = src.pageCount; i >= 1; i--) {
+      if (!keepSet.has(i)) out.removePage(i - 1);
+    }
+    const bytes = await out.save();
+    const baseName = src.name.replace(/\.pdf$/i, '');
+    const verb = action === 'keep' ? 'kept' : 'removed';
+    offerDownload(bytes, `${baseName}-${action === 'keep' ? 'subset' : 'trimmed'}.pdf`,
+      `${verb} ${specified.length} pages from "${src.name}" — ${keep1based.length} pages remain.`);
+  } catch (err) {
+    setStatus('Failed: ' + err.message, 'err');
+  }
+}
+
+$('#btn-merge').addEventListener('click', buildMerge);
+$('#btn-insert').addEventListener('click', buildInsert);
+$('#btn-pages').addEventListener('click', buildPages);
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>

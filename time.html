@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Time tracks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,800;1,9..144,400;1,9..144,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --bg: #f3ecdc;
+    --bg-deep: #ebe2cd;
+    --bg-card: #faf5e8;
+    --ink: #1c1812;
+    --ink-soft: #6a5d49;
+    --ink-faint: #b5a98e;
+    --accent: #008698;
+    --rule: #1c1812;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { overflow-x: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 100vh;
+    padding: clamp(16px, 3vw, 32px);
+    background-image:
+      radial-gradient(at 20% 10%, rgba(0,134,152,0.05) 0%, transparent 50%),
+      radial-gradient(at 80% 90%, rgba(28,24,18,0.05) 0%, transparent 50%);
+  }
+  .app { max-width: 1400px; margin: 0 auto; }
+
+  header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 2px solid var(--rule);
+    padding-bottom: 18px; margin-bottom: 28px;
+    gap: 16px; flex-wrap: wrap;
+  }
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 800;
+    font-size: clamp(36px, 6vw, 68px);
+    letter-spacing: -0.035em;
+    line-height: 0.9;
+  }
+  h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent);
+  }
+  .sub {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: var(--ink-soft);
+    font-size: 16px;
+    margin-top: 6px;
+  }
+  .meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-soft);
+    text-align: right;
+    line-height: 1.6;
+  }
+  .meta b { color: var(--accent); font-weight: 500; }
+
+  /* upload */
+  .drop {
+    border: 2px dashed var(--rule);
+    background: var(--bg-card);
+    padding: clamp(48px, 10vw, 96px) 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+    position: relative;
+  }
+  .drop:hover, .drop.over {
+    background: #fff8e8;
+    transform: scale(1.005);
+  }
+  .drop h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: clamp(24px, 3vw, 34px);
+    margin-bottom: 8px;
+  }
+  .drop h2 strong { font-weight: 800; }
+  .drop p {
+    color: var(--ink-soft);
+    font-size: 14px;
+    max-width: 480px;
+    margin: 12px auto 0;
+  }
+  .drop input { display: none; }
+  .drop::before {
+    content: '↓';
+    display: block;
+    font-family: 'Fraunces', serif;
+    font-size: 64px;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 20px;
+  }
+
+  /* main */
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 28px;
+  }
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .chart-card {
+    background: var(--bg-card);
+    border: 1.5px solid var(--rule);
+    padding: 20px;
+    position: relative;
+  }
+  .chart-card::before {
+    content: 'Fig. 01';
+    position: absolute;
+    top: 12px; right: 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .banner {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translate(-50%, -8px);
+    background: var(--ink);
+    color: var(--bg-card);
+    padding: 10px 18px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 17px;
+    letter-spacing: -0.005em;
+    opacity: 0;
+    transition: opacity 0.4s, transform 0.4s;
+    pointer-events: none;
+    z-index: 10;
+    text-align: center;
+    white-space: nowrap;
+    max-width: calc(100% - 100px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 4px 16px rgba(28,24,18,0.18);
+  }
+  .banner.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  .banner b {
+    font-style: normal;
+    font-weight: 700;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    letter-spacing: 0.02em;
+    vertical-align: 1px;
+  }
+  canvas { display: block; width: 100%; }
+
+  .controls {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    background: var(--ink);
+    color: var(--bg);
+    border: none;
+    padding: 12px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--accent); }
+  .btn.ghost {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+  }
+  .btn.ghost:hover { background: var(--ink); color: var(--bg); }
+  .scrub { flex: 1; min-width: 180px; display: flex; align-items: center; gap: 12px; }
+  .scrub input {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 2px;
+    background: var(--rule);
+    outline: none;
+  }
+  .scrub input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .scrub input::-moz-range-thumb {
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+  }
+  .date-disp {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 20px;
+    min-width: 130px;
+    text-align: right;
+  }
+
+  .side { display: flex; flex-direction: column; gap: 20px; }
+  .panel {
+    background: var(--bg-card);
+    border: 1.5px solid var(--rule);
+    padding: 18px;
+  }
+  .panel h3 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-soft);
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .panel h3 span { color: var(--ink-faint); }
+
+  .mode-toggle {
+    display: flex;
+    border: 1.5px solid var(--rule);
+  }
+  .mode-toggle button {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 11px;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink);
+    transition: background 0.15s;
+  }
+  .mode-toggle button + button { border-left: 1.5px solid var(--rule); }
+  .mode-toggle button.active { background: var(--ink); color: var(--bg); }
+  .mode-toggle button:hover:not(.active) { background: var(--bg); }
+
+  .cats { display: flex; flex-direction: column; gap: 2px; max-height: 380px; overflow-y: auto; }
+  .cats::-webkit-scrollbar { width: 6px; }
+  .cats::-webkit-scrollbar-thumb { background: var(--ink-faint); }
+  .cat {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 6px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  .cat:hover { background: var(--bg); }
+  .cat.off { opacity: 0.32; }
+  .cat .swatch {
+    width: 10px; height: 10px; border-radius: 50%;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+  }
+  .cat.off .swatch { background: var(--ink-faint) !important; }
+  .cat .name {
+    flex: 1;
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cat .val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-align: right;
+    min-width: 50px;
+  }
+
+  .quick {
+    display: flex; gap: 8px; margin-bottom: 10px;
+  }
+  .quick button {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--rule);
+    padding: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+  }
+  .quick button:hover { background: var(--ink); color: var(--bg); }
+
+  .speed {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+  }
+  .speed select {
+    background: transparent;
+    border: 1px solid var(--rule);
+    padding: 4px 8px;
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+  }
+
+  .err {
+    background: var(--accent);
+    color: var(--bg);
+    padding: 12px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Time <em>tracks</em></h1>
+      <div class="sub">your hours, on the move</div>
+    </div>
+    <div class="meta" id="meta">Awaiting timesheet</div>
+  </header>
+
+  <div id="dropArea" class="drop">
+    <input type="file" id="fileInput" accept=".csv,text/csv">
+    <h2>Drop a <strong>Harvest CSV</strong> here</h2>
+    <p>Or click to browse. Stays in your browser — nothing uploaded anywhere. Expects columns including Date, Project Code and Hours.</p>
+  </div>
+
+  <div id="main" style="display:none">
+    <div class="layout">
+      <div>
+        <div class="chart-card">
+          <div class="banner" id="overtakeBanner"></div>
+          <canvas id="chart"></canvas>
+        </div>
+        <div class="controls">
+          <button class="btn" id="playBtn">Play</button>
+          <button class="btn ghost" id="replayBtn">↺ Replay</button>
+          <div class="scrub">
+            <input type="range" id="scrub" min="0" max="1000" value="1000" step="1">
+          </div>
+          <div class="date-disp" id="dateDisp"></div>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="panel">
+          <h3>Mode <span id="modeHint">% of monthly hours</span></h3>
+          <div class="mode-toggle">
+            <button id="modePct" class="active">Percent</button>
+            <button id="modeAbs">Hours</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Categories <span id="catCount"></span></h3>
+          <div class="quick">
+            <button id="allOn">All on</button>
+            <button id="allOff">All off</button>
+            <button id="topN">Top 6</button>
+          </div>
+          <div class="cats" id="cats"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = {
+  days: [],
+  categories: [],
+  cumByCat: {},
+  cumTotal: null,
+  enabled: {},
+  colors: {},
+  mode: 'pct',
+  currentIdx: 0,
+  playing: false,
+  speedBoost: 0,
+  overtakes: []
+};
+
+const palette = [
+  '#c43e28', '#2d6fa3', '#5e8a35', '#b88a35', '#7a4a8c',
+  '#3a8a8a', '#a83a5a', '#4a5230', '#8a5a30', '#3a5a8a',
+  '#6b3a3a', '#5a7a5a', '#a86a3a', '#6a3a8a', '#3a8a5a',
+  '#8a3a5a', '#5a3a3a', '#3a6a5a'
+];
+
+function extractCategory(code) {
+  if (!code) return 'Unknown';
+  const m = String(code).match(/[A-Za-z]+/g);
+  return m ? m.join('') : 'Unknown';
+}
+
+function dayKey(dateStr) {
+  if (!dateStr) return null;
+  return String(dateStr).slice(0, 10);
+}
+
+function fillDays(start, end) {
+  if (!start || !end) return [];
+  const out = [];
+  const cur = new Date(start + 'T00:00:00Z');
+  const e = new Date(end + 'T00:00:00Z');
+  while (cur <= e) {
+    out.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return out;
+}
+
+function process(rows) {
+  const dailyByCat = {};
+  const daySet = new Set();
+  let parsed = 0;
+
+  for (const r of rows) {
+    const hours = parseFloat(r.Hours);
+    if (!hours || hours <= 0) continue;
+    const dk = dayKey(r.Date);
+    if (!dk) continue;
+    const cat = extractCategory(r['Project Code']);
+    daySet.add(dk);
+    if (!dailyByCat[cat]) dailyByCat[cat] = {};
+    dailyByCat[cat][dk] = (dailyByCat[cat][dk] || 0) + hours;
+    parsed++;
+  }
+
+  const sorted = [...daySet].sort();
+  state.days = sorted.length ? fillDays(sorted[0], sorted[sorted.length - 1]) : [];
+  state.categories = Object.keys(dailyByCat).sort((a, b) => {
+    const ta = Object.values(dailyByCat[a]).reduce((s, x) => s + x, 0);
+    const tb = Object.values(dailyByCat[b]).reduce((s, x) => s + x, 0);
+    return tb - ta;
+  });
+
+  // build cumulative arrays per category, and cumulative total
+  const N = state.days.length;
+  state.cumByCat = {};
+  state.cumTotal = new Float64Array(N);
+  for (const cat of state.categories) {
+    const arr = new Float64Array(N);
+    let run = 0;
+    for (let i = 0; i < N; i++) {
+      run += (dailyByCat[cat][state.days[i]] || 0);
+      arr[i] = run;
+    }
+    state.cumByCat[cat] = arr;
+  }
+  for (let i = 0; i < N; i++) {
+    let t = 0;
+    for (const cat of state.categories) t += state.cumByCat[cat][i];
+    state.cumTotal[i] = t;
+  }
+
+  state.enabled = {};
+  state.colors = {};
+  state.categories.forEach((c, i) => {
+    state.enabled[c] = c.length === 3;
+    state.colors[c] = palette[i % palette.length];
+  });
+  state.currentIdx = 0;
+  refreshEnabled();
+
+  return { rows: parsed, days: N, cats: state.categories.length };
+}
+
+function getValue(cat, idx) {
+  if (idx < 0 || idx >= state.days.length) return 0;
+  const cum = (state.cumByCat[cat] || [])[idx] || 0;
+  if (state.mode === 'pct') {
+    const total = (state.cumEnabledTotal || [])[idx] || 0;
+    return total > 0 ? (cum / total) * 100 : 0;
+  }
+  return cum;
+}
+
+// detect days where #1 cumulative leader changes (among enabled categories)
+const OVERTAKE_LEAD = 30;   // days before to begin slowdown
+const OVERTAKE_LAG = 25;    // days after to keep slow + banner up
+const MIN_TOTAL_FOR_OVERTAKE = 200; // skip noisy first weeks
+
+function computeOvertakes() {
+  const enabled = state.categories.filter(c => state.enabled[c]);
+  if (enabled.length < 2 || !state.days.length) return [];
+  const events = [];
+  let prev = null;
+  for (let i = 0; i < state.days.length; i++) {
+    let total = 0;
+    let leader = null;
+    let leaderVal = -1;
+    for (const c of enabled) {
+      const v = state.cumByCat[c][i];
+      total += v;
+      if (v > leaderVal) { leader = c; leaderVal = v; }
+    }
+    if (total < MIN_TOTAL_FOR_OVERTAKE || !leader) continue;
+    if (prev && leader !== prev) {
+      events.push({ idx: i, newLeader: leader, oldLeader: prev, date: state.days[i] });
+    }
+    prev = leader;
+  }
+  return events;
+}
+
+function refreshEnabled() {
+  const N = state.days.length;
+  const total = new Float64Array(N);
+  for (const cat of state.categories) {
+    if (!state.enabled[cat]) continue;
+    const arr = state.cumByCat[cat];
+    for (let i = 0; i < N; i++) total[i] += arr[i];
+  }
+  state.cumEnabledTotal = total;
+  state.overtakes = computeOvertakes();
+}
+
+function getActiveOvertake() {
+  const idx = state.currentIdx;
+  let best = null;
+  let bestDist = Infinity;
+  for (const ev of state.overtakes) {
+    if (idx > ev.idx - OVERTAKE_LEAD && idx < ev.idx + OVERTAKE_LAG) {
+      const d = Math.abs(idx - ev.idx);
+      if (d < bestDist) { bestDist = d; best = ev; }
+    }
+  }
+  return best;
+}
+
+function effectiveSpeed() {
+  if (getActiveOvertake()) return 0.1;
+  if (state.overtakes.length) {
+    const last = state.overtakes[state.overtakes.length - 1];
+    if (state.currentIdx > last.idx + OVERTAKE_LAG) {
+      return 1 + state.speedBoost;
+    }
+  }
+  return 1;
+}
+
+// canvas
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+let cssW = 0, cssH = 0;
+
+function resizeCanvas() {
+  const parent = canvas.parentElement;
+  const rect = parent.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cssW = rect.width - 40;
+  cssH = Math.max(360, Math.min(cssW * 0.55, 560));
+  canvas.style.width = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+const render = { yMax: 10 };
+
+function formatHours(v) {
+  if (v >= 10000) return (v / 1000).toFixed(1) + 'k h';
+  if (v >= 1000) return Math.round(v / 100) / 10 + 'k h';
+  return Math.round(v) + 'h';
+}
+
+function draw() {
+  if (!state.days.length) return;
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  const padL = 64, padR = 110, padT = 24, padB = 44;
+  const plotW = cssW - padL - padR;
+  const plotH = cssH - padT - padB;
+
+  const idxF = state.currentIdx;
+  const idx = Math.floor(idxF);
+  const frac = idxF - idx;
+
+  // y max — cumulative absolute is monotonic so we only need value at idx;
+  // percent needs a scan because shares can rise and fall
+  let yMax = 0;
+  if (state.mode === 'pct') {
+    for (const cat of state.categories) {
+      if (!state.enabled[cat]) continue;
+      for (let i = 0; i <= idx; i++) {
+        const v = getValue(cat, i);
+        if (v > yMax) yMax = v;
+      }
+    }
+    yMax = Math.max(10, Math.ceil(yMax / 10) * 10);
+  } else {
+    for (const cat of state.categories) {
+      if (!state.enabled[cat]) continue;
+      const v = getValue(cat, idx);
+      if (v > yMax) yMax = v;
+    }
+    // round to a nice number
+    const mag = Math.pow(10, Math.floor(Math.log10(Math.max(yMax, 10))));
+    yMax = Math.max(10, Math.ceil(yMax / mag) * mag);
+  }
+
+  // smooth interpolate
+  render.yMax += (yMax - render.yMax) * 0.12;
+  const yMaxR = render.yMax;
+
+  // expanding x axis: 0..max(idxF, 1) maps to 0..plotW
+  const xMax = Math.max(idxF, 1);
+  const xScale = (i) => padL + (i / xMax) * plotW;
+  const yScale = (v) => padT + plotH - (v / yMaxR) * plotH;
+
+  // grid + y labels
+  ctx.font = "11px 'IBM Plex Mono', monospace";
+  ctx.fillStyle = '#6a5d49';
+  for (let i = 0; i <= 5; i++) {
+    const y = padT + (i / 5) * plotH;
+    ctx.strokeStyle = i === 5 ? '#1c1812' : 'rgba(28,24,18,0.08)';
+    ctx.lineWidth = i === 5 ? 1.2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+    ctx.stroke();
+    const val = yMaxR * (1 - i / 5);
+    const lbl = state.mode === 'pct' ? val.toFixed(0) + '%' : formatHours(val);
+    ctx.textAlign = 'right';
+    ctx.fillText(lbl, padL - 10, y + 4);
+  }
+
+  // x axis: year ticks (first occurrence of each year in visible range)
+  const yearsShown = new Set();
+  for (let i = 0; i <= idx; i++) {
+    const yr = state.days[i].slice(0, 4);
+    if (!yearsShown.has(yr)) {
+      yearsShown.add(yr);
+      const x = xScale(i);
+      ctx.strokeStyle = 'rgba(28,24,18,0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, padT + plotH);
+      ctx.lineTo(x, padT + plotH + 6);
+      ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#1c1812';
+      ctx.font = "500 11px 'IBM Plex Mono', monospace";
+      ctx.fillText(yr, x, padT + plotH + 22);
+    }
+  }
+
+  // y-axis vertical line
+  ctx.strokeStyle = '#1c1812';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(padL, padT);
+  ctx.lineTo(padL, padT + plotH);
+  ctx.stroke();
+
+  const ends = [];
+
+  for (const cat of state.categories) {
+    if (!state.enabled[cat]) continue;
+    const color = state.colors[cat];
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.2;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.92;
+    ctx.beginPath();
+    for (let i = 0; i <= idx; i++) {
+      const v = getValue(cat, i);
+      const x = xScale(i);
+      const y = yScale(v);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    // interpolated tail to fractional day
+    if (frac > 0 && idx < state.days.length - 1) {
+      const v1 = getValue(cat, idx);
+      const v2 = getValue(cat, idx + 1);
+      const v = v1 + (v2 - v1) * frac;
+      ctx.lineTo(xScale(idxF), yScale(v));
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    let endV;
+    if (frac > 0 && idx < state.days.length - 1) {
+      const v1 = getValue(cat, idx);
+      const v2 = getValue(cat, idx + 1);
+      endV = v1 + (v2 - v1) * frac;
+    } else {
+      endV = getValue(cat, idx);
+    }
+    const endX = xScale(idxF);
+    const endY = yScale(endV);
+
+    const grad = ctx.createRadialGradient(endX, endY, 0, endX, endY, 14);
+    grad.addColorStop(0, color + 'aa');
+    grad.addColorStop(1, color + '00');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(endX, endY, 14, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(endX, endY, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#faf5e8';
+    ctx.beginPath();
+    ctx.arc(endX, endY, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ends.push({ cat, color, x: endX, y: endY, v: endV });
+  }
+
+  // de-collide labels
+  ends.sort((a, b) => a.y - b.y);
+  const labelH = 16;
+  for (let i = 1; i < ends.length; i++) {
+    if (ends[i].y - ends[i - 1].y < labelH) {
+      ends[i].y = ends[i - 1].y + labelH;
+    }
+  }
+
+  ctx.font = "500 12px 'IBM Plex Sans', sans-serif";
+  ctx.textAlign = 'left';
+  for (const e of ends) {
+    ctx.strokeStyle = e.color;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(e.x + 6, e.y);
+    ctx.lineTo(e.x + 14, e.y);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = e.color;
+    ctx.fillText(e.cat, e.x + 18, e.y + 4);
+    ctx.fillStyle = '#6a5d49';
+    ctx.font = "400 10px 'IBM Plex Mono', monospace";
+    const w = ctx.measureText(e.cat).width;
+    const val = state.mode === 'pct' ? e.v.toFixed(1) + '%' : formatHours(e.v);
+    ctx.fillText(val, e.x + 18 + w + 6, e.y + 4);
+    ctx.font = "500 12px 'IBM Plex Sans', sans-serif";
+  }
+}
+
+// animation
+let rafId = null;
+let lastTime = 0;
+
+function tick(t) {
+  if (!state.playing) return;
+  const dt = Math.min(t - lastTime, 50);
+  lastTime = t;
+
+  // Past the last crossover? Ramp speed by +0.1 per second of real time.
+  if (state.overtakes.length) {
+    const last = state.overtakes[state.overtakes.length - 1];
+    if (state.currentIdx > last.idx + OVERTAKE_LAG && !getActiveOvertake()) {
+      state.speedBoost += 0.1 * (dt / 1000);
+    } else {
+      state.speedBoost = 0;
+    }
+  } else {
+    state.speedBoost = 0;
+  }
+
+  state.currentIdx += (dt / 12) * effectiveSpeed();
+  if (state.currentIdx >= state.days.length - 1) {
+    state.currentIdx = state.days.length - 1;
+    state.playing = false;
+    document.getElementById('playBtn').textContent = 'Play';
+  }
+  updateUI();
+  draw();
+  if (state.playing) rafId = requestAnimationFrame(tick);
+}
+
+function updateUI() {
+  const idx = Math.floor(state.currentIdx);
+  const day = state.days[idx];
+  if (day) {
+    const [y, m, d] = day.split('-');
+    const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    document.getElementById('dateDisp').textContent =
+      `${parseInt(d)} ${names[parseInt(m) - 1]} ${y}`;
+  }
+  const pct = state.days.length > 1 ? (state.currentIdx / (state.days.length - 1)) * 1000 : 1000;
+  document.getElementById('scrub').value = pct;
+  document.getElementById('modeHint').textContent =
+    state.mode === 'pct' ? 'cumulative share of selected' : 'cumulative hours';
+
+  // overtake banner
+  const banner = document.getElementById('overtakeBanner');
+  const ev = getActiveOvertake();
+  if (ev) {
+    const [y, m, d] = ev.date.split('-');
+    const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const when = `${parseInt(d)} ${names[parseInt(m) - 1]} ${y}`;
+    const newColor = state.colors[ev.newLeader] || '#1c1812';
+    const oldColor = state.colors[ev.oldLeader] || '#1c1812';
+    const before = state.currentIdx < ev.idx;
+    const verb = before ? 'is about to overtake' : 'overtook';
+    banner.innerHTML =
+      `<b style="background:${newColor};color:#faf5e8">${ev.newLeader}</b> ${verb} ` +
+      `<b style="background:${oldColor};color:#faf5e8">${ev.oldLeader}</b> on ${when}`;
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+
+  updateCatList();
+}
+
+function updateCatList() {
+  const idx = Math.floor(state.currentIdx);
+  document.querySelectorAll('.cat').forEach(el => {
+    const cat = el.dataset.cat;
+    const v = getValue(cat, idx);
+    el.querySelector('.val').textContent =
+      state.mode === 'pct' ? v.toFixed(1) + '%' : formatHours(v);
+    el.classList.toggle('off', !state.enabled[cat]);
+  });
+}
+
+function buildCatList() {
+  const c = document.getElementById('cats');
+  c.innerHTML = '';
+  for (const cat of state.categories) {
+    const d = document.createElement('div');
+    d.className = 'cat' + (state.enabled[cat] ? '' : ' off');
+    d.dataset.cat = cat;
+    d.innerHTML = `
+      <div class="swatch" style="background:${state.colors[cat]}"></div>
+      <div class="name" title="${cat}">${cat}</div>
+      <div class="val"></div>`;
+    d.onclick = () => {
+      state.enabled[cat] = !state.enabled[cat];
+      refreshEnabled();
+      updateCatList();
+      draw();
+    };
+    c.appendChild(d);
+  }
+  document.getElementById('catCount').textContent = `${state.categories.length} total`;
+}
+
+// file handling
+const fileInput = document.getElementById('fileInput');
+const dropArea = document.getElementById('dropArea');
+
+dropArea.onclick = () => fileInput.click();
+['dragover'].forEach(e => dropArea.addEventListener(e, ev => {
+  ev.preventDefault();
+  dropArea.classList.add('over');
+}));
+['dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, ev => {
+  ev.preventDefault();
+  dropArea.classList.remove('over');
+}));
+dropArea.addEventListener('drop', ev => {
+  ev.preventDefault();
+  const f = ev.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+fileInput.onchange = e => { if (e.target.files[0]) loadFile(e.target.files[0]); };
+
+function loadFile(file) {
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: (res) => {
+      try {
+        const summary = process(res.data);
+        if (!summary.rows) {
+          alert('No usable rows found. Check the CSV has Date, Project Code and Hours columns.');
+          return;
+        }
+        document.getElementById('dropArea').style.display = 'none';
+        document.getElementById('main').style.display = 'block';
+        document.getElementById('meta').innerHTML =
+          `${summary.rows.toLocaleString()} entries<br>` +
+          `<b>${summary.days.toLocaleString()}</b> days · <b>${summary.cats}</b> categories`;
+        buildCatList();
+        resizeCanvas();
+        updateUI();
+        draw();
+      } catch (err) {
+        alert('Error parsing CSV: ' + err.message);
+      }
+    }
+  });
+}
+
+// controls
+document.getElementById('playBtn').onclick = () => {
+  if (state.currentIdx >= state.days.length - 1) {
+    state.currentIdx = 0;
+    render.yMax = 10;
+  }
+  state.playing = !state.playing;
+  document.getElementById('playBtn').textContent = state.playing ? 'Pause' : 'Play';
+  if (state.playing) {
+    lastTime = performance.now();
+    rafId = requestAnimationFrame(tick);
+  }
+};
+
+document.getElementById('replayBtn').onclick = () => {
+  state.currentIdx = 0;
+  render.yMax = 10;
+  state.playing = true;
+  document.getElementById('playBtn').textContent = 'Pause';
+  lastTime = performance.now();
+  rafId = requestAnimationFrame(tick);
+};
+
+document.getElementById('scrub').oninput = e => {
+  state.playing = false;
+  document.getElementById('playBtn').textContent = 'Play';
+  state.currentIdx = (parseFloat(e.target.value) / 1000) * (state.days.length - 1);
+  state.speedBoost = 0;
+  updateUI();
+  draw();
+};
+
+function setMode(m) {
+  state.mode = m;
+  document.getElementById('modePct').classList.toggle('active', m === 'pct');
+  document.getElementById('modeAbs').classList.toggle('active', m === 'abs');
+  render.yMax = 10;
+  updateUI();
+  draw();
+}
+document.getElementById('modePct').onclick = () => setMode('pct');
+document.getElementById('modeAbs').onclick = () => setMode('abs');
+
+document.getElementById('allOn').onclick = () => {
+  state.categories.forEach(c => state.enabled[c] = true);
+  refreshEnabled();
+  updateCatList(); draw();
+};
+document.getElementById('allOff').onclick = () => {
+  state.categories.forEach(c => state.enabled[c] = false);
+  refreshEnabled();
+  updateCatList(); draw();
+};
+document.getElementById('topN').onclick = () => {
+  state.categories.forEach((c, i) => state.enabled[c] = i < 6);
+  refreshEnabled();
+  updateCatList(); draw();
+};
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { resizeCanvas(); draw(); }, 100);
+});
+</script>
+</body>
+</html>

@@ -828,7 +828,7 @@ function updateUI() {
   const pct = state.days.length > 1 ? (state.currentIdx / (state.days.length - 1)) * 1000 : 1000;
   document.getElementById('scrub').value = pct;
   document.getElementById('modeHint').textContent =
-    state.mode === 'pct' ? 'cumulative share of selected' : 'cumulative hours';
+    state.mode === 'pct' ? 'cumulative share' : 'cumulative hours';
 
   // overtake banner
   const banner = document.getElementById('overtakeBanner');
